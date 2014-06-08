@@ -183,10 +183,10 @@ def timeoutCallback(n): # Numerical input for timeout
 
 def mirroringCallback():
   global config
-  if config['settings']['mirroring'] == "on":
-    config['settings']['mirroring'] = "off"
-  elif config['settings']['mirroring'] == "off":
-    config['settings']['mirroring'] = "on"
+  if config['pushbullet']['mirroring'] == "on":
+    config['pushbullet']['mirroring'] = "off"
+  elif config['pushbullet']['mirroring'] == "off":
+    config['pushbullet']['mirroring'] = "on"
   saveConfig()
 
 # Global stuff -------------------------------------------------------------
@@ -271,6 +271,56 @@ def CheckInputs():
           saveConfig()
     time.sleep(0.8)
 
+# Collect user input to create a fresh config file
+def CreateConfig():
+  global config
+
+  log("A configuration file was not found. Let's create one.", "WARN")
+  LAST_KEY        = None
+  LAST_SECRET     = None
+  last_username   = None
+  last_password   = None
+  push_key        = None
+  push_mirroring  = None
+
+  #get config details
+  while not LAST_KEY:
+    LAST_KEY       = raw_input("Enter your Last.fm API key: ")
+  while not LAST_SECRET:
+    LAST_SECRET    = raw_input("Enter your Last.fm API secret: ")
+  while not last_username:
+    last_username  = raw_input("Enter your Last.fm username: ")
+  while not last_password:
+    last_password  = pylast.md5(raw_input("Enter your Last.fm password: "))
+  print "Pushbullet features are optional. Leave these blank if you don't want to use it."
+  push_key       = raw_input("Enter your Pushbullet API key (can be found at https://www.pushbullet.com/account): ")
+  if push_key:
+    while True:
+      push_mirroring = raw_input("Would you like to enable Pushbullet notifictation mirroring? (must be enabled on device) [on/off] ").lower()
+      if push_mirroring != "on" and push_mirroring != "off":
+        print "Please enter on/off"
+      else:
+        break
+
+  config = {
+    'lastfm': {
+      'API_KEY':     LAST_KEY,
+      'API_SECRET':  LAST_SECRET,
+      'username':    last_username,
+      'password':    last_password
+    },
+    'pushbullet': {
+      'API_KEY':     push_key,
+      'mirroring':   push_mirroring
+    },
+    'settings': {
+      'backlight':   "on",
+      'timeout':     "9"
+    }
+  }
+  with open('config.json', 'w') as outfile:
+    json.dump(config, outfile, indent=2)
+
 # Write the current configuration and preferences (which should
 # always be up to date in config) to config.json
 def saveConfig():
@@ -282,12 +332,12 @@ def saveConfig():
       'password':    config['lastfm']['password']
     },
     'pushbullet': {
-      'API_KEY': "7b364932bbbcbff68bac56c72b05c42e"
+      'API_KEY':     config['pushbullet']['API_KEY'],
+      'mirroring':   config['pushbullet']['mirroring']
     },
     'settings': {
       'backlight':   config['settings']['backlight'],
-      'timeout':     config['settings']['timeout'],
-      'mirroring':   config['settings']['mirroring']
+      'timeout':     config['settings']['timeout']
     }
   }
   with open('config.json', 'w') as outfile:
@@ -325,7 +375,7 @@ def OnPBMessage(ws, message):
     if PbMessage['pushes'][0]['type']:
       PbPrior = screenMode
       screenMode = 4
-  elif message['type'] == "push" and config['settings']['mirroring'] == "on": # A notification happened somewhere, show it if enabled
+  elif message['type'] == "push" and config['pushbullet']['mirroring'] == "on": # A notification happened somewhere, show it if enabled
     imgdata = base64.b64decode(message['push']['icon']) # The notification icon is encoded in base64, decode it
     with open("cache/pb-mirror.png", "wb") as f:
       f.write(imgdata)
@@ -368,10 +418,15 @@ for s in buttons:        # For each screenful of buttons...
         b.iconFg = i
         b.fg     = None
 
+# Check config
+if os.path.isfile('config.json'):
+  with open('config.json') as infile:
+    config = json.load(infile)
+else:
+  CreateConfig()
+
 # Init pylast
 log("Connecting to Last.fm...", "INFO")
-with open('config.json') as infile:
-  config    = json.load(infile)
 API_KEY     = config['lastfm']['API_KEY']
 API_SECRET  = config['lastfm']['API_SECRET']
 username    = config['lastfm']['username']
@@ -573,7 +628,7 @@ while(True):
     screen.blit(label, (130, 10))
     label = myfont.render(str(config['settings']['timeout']) + " seconds", 1, (255,255,255))
     screen.blit(label, (130, 70))
-    label = myfont.render(str(config['settings']['mirroring']) , 1, (255,255,255))
+    label = myfont.render(str(config['pushbullet']['mirroring']) , 1, (255,255,255))
     screen.blit(label, (130,130))
 
   if screenMode is 0: # Clock
