@@ -327,7 +327,7 @@ def OnPBMessage(ws, message):
       screenMode = 4
   elif message['type'] == "push" and config['settings']['mirroring'] == "on": # A notification happened somewhere, show it if enabled
     imgdata = base64.b64decode(message['push']['icon']) # The notification icon is encoded in base64, decode it
-    with open("icons/pb-mirror.png", "wb") as f:
+    with open("cache/pb-mirror.png", "wb") as f:
       f.write(imgdata)
     PbMessage = message['push']
     PbPrior = screenMode
@@ -440,7 +440,7 @@ while(True):
     textpos.centery = 20
     screen.blit(label, textpos)
 
-    mirror = pygame.image.load("icons/pb-mirror.png")
+    mirror = pygame.image.load("cache/pb-mirror.png")
     mirrorscaled = pygame.transform.scale(mirror, (72, 72))
     screen.blit(mirrorscaled, (20, 84))
 
@@ -539,8 +539,8 @@ while(True):
     myfont = pygame.font.SysFont("Arial", 20)
 
     if cover:
-      urllib.urlretrieve(cover, "icons/cover.png")
-      coverimg = pygame.image.load("icons/cover.png")
+      urllib.urlretrieve(cover, "cache/cover.png")
+      coverimg = pygame.image.load("cache/cover.png")
       coverscaled = pygame.transform.scale(coverimg, (115, 115))
       screen.blit(coverscaled, (19, 48))
 
