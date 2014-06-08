@@ -1,5 +1,5 @@
-# Lapse-Pi timelapse controller for Raspberry Pi
-# This must run as root (sudo python lapse.py) due to framebuffer, etc.
+# Last.fm/Pushbullet subscriber/Clock for Raspberry Pi
+# This must run as root (sudo python screen.py) due to framebuffer, etc.
 #
 # http://www.adafruit.com/products/998  (Raspberry Pi Model B)
 # http://www.adafruit.com/products/1601 (PiTFT Mini Kit)
@@ -7,7 +7,8 @@
 # Prerequisite tutorials: aside from the basic Raspbian setup and PiTFT setup
 # http://learn.adafruit.com/adafruit-pitft-28-inch-resistive-touchscreen-display-raspberry-pi
 #
-# lapse.py by David Hunt (dave@davidhunt.ie)
+# screen.py by Ivan Brazza
+# based on lapse.py by David Hunt (dave@davidhunt.ie), in turn
 # based on cam.py by Phil Burgess / Paint Your Dragon for Adafruit Industries.
 # BSD license, all text above must be included in any redistribution.
 
@@ -130,14 +131,14 @@ class Backlight:
 def testCallback():
   log("test", "INFO")
 
-def screenCallback(n): # Viewfinder buttons
+def screenCallback(n): # Switch to a screen mode
   global screenMode
   if n is 5:
     global config, numberstring
     numberstring = str(config['settings']['timeout'])
   screenMode = n
 
-def clockCallback():
+def clockCallback(): # Enable backlight if off, show settings if on
   global screenMode, backlight, config, sleep
   if config['settings']['backlight'] == "on":
     screenMode = 1
@@ -145,7 +146,7 @@ def clockCallback():
     backlight.on()
     sleep = 0
 
-def nowPlayingCallback():
+def nowPlayingCallback(): # Enable/disable backlight
   global backlight, config, sleep
   if config['settings']['backlight'] == "on":
     backlight.off()
@@ -157,7 +158,7 @@ def mainCallback(): # Exit settings
 	global screenMode
 	screenMode = 0 # Switch back to main window
 
-def backlightCallback():
+def backlightCallback(): # Enable/disable backlight and save to config
   global config, backlight
   if config['settings']['backlight'] == "on":
     backlight.off()
@@ -167,7 +168,7 @@ def backlightCallback():
     config['settings']['backlight'] = "on"
   saveConfig()
 
-def timeoutCallback(n): # Pass 1 (next setting) or -1 (prev setting)
+def timeoutCallback(n): # Numerical input for timeout
   global screenMode, numberstring, config
   if n < 10:
     numberstring = numberstring + str(n)
@@ -192,19 +193,19 @@ def mirroringCallback():
 screenMode      =  0      # Current screen mode; default = viewfinder
 screenModePrior = -1      # Prior screen mode (for detecting changes)
 iconPath        = 'icons' # Subdirectory containing UI bitmaps (PNG format)
-sleep           = 0
+sleep           = 0       # Seconds counter for backlight timeout
 icons           = []      # This list gets populated at startup
-numberstring    = "0"
+numberstring    = "0"     # Backlight timer numerical input
 
 # buttons[] is a list of lists; each top-level list element corresponds
 # to one screen mode, and each element within those lists corresponds to one UI button.
 
 buttons = [
 
-  # Clock
+  # 0 - Clock
   [Button((0, 0, 320, 240), cb=clockCallback)],
 
-  # Settings
+  # 1 - Settings
   [Button((260,  0, 60, 60), bg='cog',   cb=backlightCallback),
    Button((260, 60, 60, 60), bg='cog',   cb=screenCallback, value=5),
    Button((260,120, 60, 60), bg='cog',   cb=mirroringCallback),
@@ -212,17 +213,17 @@ buttons = [
    Button((160,180, 70, 60), bg='left',  cb=testCallback),
    Button((230,180, 70, 60), bg='right', cb=testCallback)],
 
-  # Now Playing
+  # 2 - Now Playing
   [Button((  0,   0, 320, 180),           cb=nowPlayingCallback),
    Button((130, 180,  60,  60), bg='cog', cb=screenCallback, value=3)],
 
-  # Track info
+  # 3 - Track info
   [Button(( 90, 180, 140,  60), bg='ok', cb=screenCallback, value=2)],
 
-  # PB
+  # 4 - Pushbullet push
   [],
 
-  # Screen 5 for numeric input
+  # 5 - Backlight timeout numerical input
   [Button((  0,  0,320, 60), bg='box'),
    Button((180,120, 60, 60), bg='0',     cb=timeoutCallback, value=0),
    Button((  0,180, 60, 60), bg='1',     cb=timeoutCallback, value=1),
@@ -238,6 +239,7 @@ buttons = [
    Button((180,180,140, 60), bg='ok',    cb=timeoutCallback, value=12),
    Button((180, 60,140, 60), bg='cancel',cb=timeoutCallback, value=11)],
 
+  # 6 - Pushbullet notification mirror
   []
 ]
 
@@ -246,6 +248,9 @@ buttons = [
 def TFTBtn2Click(channel):
   pygame.event.post(click2event)
 
+# Run on a separate thread, CheckInputs() never stops checking touchscreen
+# and tac switch input, sleeping for 0.8s at the end of each loop to reduce
+# CPU usage.
 def CheckInputs():
   global config
   while True:
@@ -266,53 +271,62 @@ def CheckInputs():
           saveConfig()
     time.sleep(0.8)
 
+# Write the current configuration and preferences (which should
+# always be up to date in config) to config.json
 def saveConfig():
-  towrite   = { 'lastfm': {
-                  'API_KEY':     config['lastfm']['API_KEY'],
-                  'API_SECRET':  config['lastfm']['API_SECRET'],
-                  'username':    config['lastfm']['username'],
-                  'password':    config['lastfm']['password']
-                },
-                'pushbullet': {
-                  'API_KEY': "7b364932bbbcbff68bac56c72b05c42e"
-                },
-                'settings': {
-                  'backlight':   config['settings']['backlight'],
-                  'timeout':     config['settings']['timeout'],
-                  'mirroring':   config['settings']['mirroring']
-                }
-              }
+  towrite   = {
+    'lastfm': {
+      'API_KEY':     config['lastfm']['API_KEY'],
+      'API_SECRET':  config['lastfm']['API_SECRET'],
+      'username':    config['lastfm']['username'],
+      'password':    config['lastfm']['password']
+    },
+    'pushbullet': {
+      'API_KEY': "7b364932bbbcbff68bac56c72b05c42e"
+    },
+    'settings': {
+      'backlight':   config['settings']['backlight'],
+      'timeout':     config['settings']['timeout'],
+      'mirroring':   config['settings']['mirroring']
+    }
+  }
   with open('config.json', 'w') as outfile:
-    json.dump(towrite, outfile, indent=4)
+    json.dump(towrite, outfile, indent=2)
 
+# Log a message with a timestamp to the console window
 def log(logmsg, type):
   timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
   print "[{0}] [{1}] {2}".format(timestamp, type, logmsg)
 
+# Run on a separate thread, InitPB() connects to the Pushbullet
+# websocket, and keeps the connection open forever
 def InitPB():
   websocket.enableTrace(False)
   ws = websocket.WebSocketApp("wss://stream.pushbullet.com/websocket/" + config['pushbullet']['API_KEY'], on_message = OnPBMessage)
   ws.on_open = OnPBStart
   ws.run_forever()
 
+# When a connection to the Pushbullet websocket is established,
+# log and get all available Pushbullet devices
 def OnPBStart(ws):
   global PbDevices
   log("Connected to Pushbullet WebSocket", "INFO")
   r = requests.get("https://api.pushbullet.com/v2/devices", auth=(config['pushbullet']['API_KEY'], ''))
   PbDevices = r.json()['devices']
 
+# Whenever something happens in the Pushbullet websocket.
 def OnPBMessage(ws, message):
   global PbMessage, screenMode, PbPrior, config
   timestamp = time.time()
   message   = json.loads(message)
-  if message['type'] == "tickle":
+  if message['type'] == "tickle": # A new push was sent, fetch it!
     r = requests.get("https://api.pushbullet.com/v2/pushes?modified_after=" + str(time.time() - 100), auth=(config['pushbullet']['API_KEY'], ''))
     PbMessage = r.json()
     if PbMessage['pushes'][0]['type']:
       PbPrior = screenMode
       screenMode = 4
-  elif message['type'] == "push" and config['settings']['mirroring'] == "on":
-    imgdata = base64.b64decode(message['push']['icon'])
+  elif message['type'] == "push" and config['settings']['mirroring'] == "on": # A notification happened somewhere, show it if enabled
+    imgdata = base64.b64decode(message['push']['icon']) # The notification icon is encoded in base64, decode it
     with open("icons/pb-mirror.png", "wb") as f:
       f.write(imgdata)
     PbMessage = message['push']
@@ -365,7 +379,7 @@ password    = config['lastfm']['password']
 network     = pylast.LastFMNetwork(api_key = API_KEY, api_secret = API_SECRET, username = username, password_hash = password)
 user        = network.get_user("dudeman1996")
 result      = user.get_now_playing()
-if result:
+if result: # If scrobbling, get details
   screenMode = 2
   artist = result.artist.get_name()
   try:
@@ -380,21 +394,26 @@ if result:
 else:
   title = " "
 
+# Set the second tact switch up
 GPIO.setmode(GPIO.BCM)
 TFTBUTTONCLICK = pygame.USEREVENT + 1
 click2event = pygame.event.Event(TFTBUTTONCLICK, button=2)
 GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.add_event_detect(22, GPIO.FALLING, callback=TFTBtn2Click, bouncetime=200)
 
+# Init the Backlight class
 backlight = Backlight(config)
 
+# Display a blank screen
 screen.fill(0)
 pygame.display.update()
 
+# Start the CheckInputs thread
 inputThread = threading.Thread(target=CheckInputs)
 inputThread.setDaemon(True)
 inputThread.start()
 
+# Start the Pushbullet websocket thread
 PbThread = threading.Thread(target=InitPB)
 PbThread.setDaemon(True)
 PbThread.start()
@@ -571,8 +590,11 @@ while(True):
     screen.blit(plabel, ppos)
     screen.blit(clocklabel, textpos) 
 
+  # Update the screen
   pygame.display.update()
   screenModePrior = screenMode
+
+  # Check if anything is scrobbling
   try:
     result = user.get_now_playing()
   except:
@@ -598,9 +620,10 @@ while(True):
       sleep = 0
     screenMode = 0
 
+  # Sleep (turn off the backlight) after x seconds defined in the config
   if sleep < int(config['settings']['timeout']):
     sleep += 1
   if sleep >= int(config['settings']['timeout']):
-    if screenMode == 0 or screenMode == 2:
+    if screenMode == 0 or screenMode == 2: # Only sleep on the Clock or Now Playing screens
       backlight.off()
   time.sleep(1)
