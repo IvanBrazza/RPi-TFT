@@ -519,12 +519,15 @@ while(True):
     myfont  = pygame.font.SysFont("Arial", 20)
     y       = 100
 
-    for device in PbDevices:
-      if device['iden'] == push['target_device_iden']:
-        if 'nickname' in device:
-          to = device['nickname']
-        elif 'model' in device:
-          to = device['model']
+    if 'target_device_iden' in push:
+      for device in PbDevices:
+        if device['iden'] == push['target_device_iden']:
+          if 'nickname' in device:
+            to = device['nickname']
+            break
+          elif 'model' in device:
+            to = device['model']
+            break
 
     label           = myfont.render("New Push!", 1, (255,255,255))
     textpos         = label.get_rect()
