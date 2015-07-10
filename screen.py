@@ -109,19 +109,19 @@ class Button:
 
 class Backlight:
   def __init__(self, config):
-    os.system("echo 252 > /sys/class/gpio/export")
-    os.system("echo 'out' > /sys/class/gpio/gpio252/direction")
+    os.system("echo 508 > /sys/class/gpio/export")
+    os.system("echo 'out' > /sys/class/gpio/gpio508/direction")
     if config['settings']['backlight'] == "on":
       self.on()
     elif config['settings']['backlight'] == "off":
       self.off()
 
   def on(self):
-    os.system("echo '1' > /sys/class/gpio/gpio252/value")
+    os.system("echo '1' > /sys/class/gpio/gpio508/value")
     config['settings']['backlight'] = "on"
   
   def off(self):
-    os.system("echo '0' > /sys/class/gpio/gpio252/value")
+    os.system("echo '0' > /sys/class/gpio/gpio508/value")
     config['settings']['backlight'] = "off"
 
 # UI callbacks -------------------------------------------------------------
