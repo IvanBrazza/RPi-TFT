@@ -597,6 +597,8 @@ while(True):
     myfont = pygame.font.SysFont("Arial", 20)
 
     if cover:
+      if not os.path.exists("cache"):
+        os.makedirs("cache")
       urllib.urlretrieve(cover, "cache/cover.png")
       coverimg = pygame.image.load("cache/cover.png")
       coverscaled = pygame.transform.scale(coverimg, (115, 115))
